@@ -1,5 +1,26 @@
+/*
+ *  Alyal - A file encryption and decryption tool based on Baheem.
+ *  Copyright (C) 2022 M. Rajululkahf
+ *  https://codeberg.org/rajululkahf/alyal
+ *  https://codeberg.org/rajululkahf/baheem
+ *
+ *  This program is free software: you can redistribute it and/or modify
+ *  it under the terms of the GNU General Public License as published by
+ *  the Free Software Foundation, either version 3 of the License, or
+ *  (at your option) any later version.
+ *
+ *  This program is distributed in the hope that it will be useful,
+ *  but WITHOUT ANY WARRANTY; without even the implied warranty of
+ *  MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ *  GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License
+ *  along with this program.  If not, see <https://www.gnu.org/licenses/>.
+ *
+ */
+
 #include <stdint.h> /* uint*_t */
-#include <stdio.h>  /* fprintf, printf, fopen, fread, fwrite, fclose,
+#include <stdio.h>  /* fprintf, printf, fopen, fread, fwrite, fclose, feof,
                        perror */
 #include <string.h> /* strcmp, memset */
 #include <stdlib.h> /* malloc, free */
@@ -121,16 +142,16 @@ int main(int argc, char **argv) {
     if (alyal_open(&in,   inpath,   "r")) goto fail;
     if (alyal_open(&out,  outpath,  "w")) goto fail;
     if (alyal_open(&trng, trngpath, "r")) goto fail;
-    pad = malloc(k_size + m_size + p_size + q_size);
-    memset(pad, 0, k_size + m_size + p_size + q_size);
+    pad = malloc(k_size + p_size + q_size + m_size);
+    memset(pad, 0, k_size + p_size + q_size + m_size);
     if (pad == NULL) {
         perror("Memory allocation");
         goto fail;
     }
     uint64_t *k = pad;
-    uint64_t *m = k + 2;
-    uint64_t *p = m + OPSNUM;
+    uint64_t *p = k + 2;
     uint64_t *q = p + OPSNUM;
+    uint64_t *m = q + OPSNUM;
 
     /* get 128bit key from STDIN */
     alyal_info("Reading 128bit key from STDIN..");
@@ -140,7 +161,7 @@ int main(int argc, char **argv) {
     }
 
     /* process input into output */
-    size_t in_size, out_size;
+    size_t in_size;
     if (is_enc) {
         alyal_info("Encrypting...");
         while((in_size = fread(m, 1, m_size, in))) {
@@ -149,22 +170,28 @@ int main(int argc, char **argv) {
                 goto fail;
             }
             baheem_enc(k, p, q, m, OPSNUM);
-            out_size = fwrite(p, p_size + q_size, 1, out);
-            out_size += fwrite(m, in_size, 1, out);
-            if (out_size != 2) {
-                alyal_error("Writing output failed");
+            if (fwrite(p, p_size + q_size + in_size, 1, out) != 1) {
+                alyal_error("Writing ciphertext failed");
                 goto fail;
             }
         }
     } else {
         alyal_info("Decrypting...");
-        while((in_size = fread(m, 1, m_size + p_size + q_size, in))) {
+        while((in_size = fread(p, 1, p_size + q_size + m_size, in))) {
+            if (in_size < p_size + q_size + 1) {
+                alyal_error("Corrupted ciphertext");
+                goto fail;
+            }
             baheem_dec(k, p, q, m, OPSNUM);
             if (fwrite(m, in_size - p_size - q_size, 1, out) != 1) {
-                alyal_error("Writing output failed");
+                alyal_error("Writing cleartext failed");
                 goto fail;
             }
         }
+    }
+    if (feof(in) == 0) {
+        alyal_error("Reading input failed");
+        goto fail;
     }
 
     /* free resources and exit */
