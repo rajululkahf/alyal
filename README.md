@@ -1,4 +1,4 @@
-Alya is a file encryption and decryption tool implementing
+Alyal is a file encryption and decryption tool implementing
 [Baheem](https://codeberg.org/rajululkahf/baheem).
 
 1. Run `make` to compile.
