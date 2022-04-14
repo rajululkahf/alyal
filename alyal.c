@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
             alyal_error("Invalid hexadecimal input");
             goto fail;
         }
-        if (i > 15) {
+        if (j > 15) {
             alyal_error("Too long key");
             goto fail;
         }
@@ -176,7 +176,7 @@ int main(int argc, char **argv) {
         else j++;
         i++;
     }
-    if (i < 16) {
+    if (j < 16) {
         alyal_error("Too short key");
         goto fail;
     }
