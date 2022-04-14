@@ -25,7 +25,7 @@
 #include <string.h> /* strcmp, memset */
 #include <stdlib.h> /* malloc, free */
 
-#define VERSION "0"
+#define VERSION "1"
 #define YEAR "2022"
 #define DEFAULT_TRNG "/dev/random"
 #define OPSNUM 512
@@ -40,11 +40,12 @@ void alyal_error(char *s) {
 
 void alyal_help(char *cmd_name) {
     printf(
-        "\n"
-        "Alyal v%s - A provably secure file encryptor\n"
+        "Alyal v%s [1] - A file encryption tool using Baheem [2]\n"
         "Copyright (c) M. Rajululkahf %s\n"
-        "Licensed under the GNU GPLv3\n"
-        "https://codeberg.org/rajululkahf/alyal\n"
+        "Licensed under the GNU GPLv3 [3]\n"
+        "[1] https://codeberg.org/rajululkahf/alyal\n"
+        "[2] https://codeberg.org/rajululkahf/baheem\n"
+        "[3] https://www.gnu.org/licenses/gpl-3.0.txt\n"
         "\n"
         "Usage:\n"
         "   %s (enc|dec) IN OUT [TRNG]\n"
@@ -70,11 +71,11 @@ int alyal_open(FILE **f, char *path, char *mode) {
 }
 
 void baheem_enc(
-    uint64_t *k, /* 128bit pre-shared key */
-    uint64_t *p, /* random pad 1          */
-    uint64_t *q, /* random pad 2          */
-    uint64_t *m, /* message               */
-    size_t  len  /* length of m = p = q   */
+    uint64_t *k, /* 128-bit pre-shared key */
+    uint64_t *p, /* random pad 1           */
+    uint64_t *q, /* random pad 2           */
+    uint64_t *m, /* message                */
+    size_t  len  /* length of m = p = q    */
 ) {
     size_t i;
     for (i = 0; i < len; i++) {
@@ -85,11 +86,11 @@ void baheem_enc(
 }
 
 void baheem_dec(
-    uint64_t *k, /* 128bit pre-shared key */
-    uint64_t *p, /* random pad 1          */
-    uint64_t *q, /* random pad 2          */
-    uint64_t *m, /* message               */
-    size_t  len  /* length of m = p = q   */
+    uint64_t *k, /* 128-bit pre-shared key */
+    uint64_t *p, /* random pad 1           */
+    uint64_t *q, /* random pad 2           */
+    uint64_t *m, /* message                */
+    size_t  len  /* length of m = p = q    */
 ) {
     size_t i;
     for (i = 0; i < len; i++) {
@@ -101,7 +102,6 @@ void baheem_dec(
 
 int main(int argc, char **argv) {
     /* parse arguments */
-    int is_error = 0;
     int is_enc = 0;
     char *inpath, *outpath, *trngpath = DEFAULT_TRNG;
     switch(argc) {
@@ -112,19 +112,17 @@ int main(int argc, char **argv) {
             if (strcmp(argv[1], "enc") == 0) {
                 is_enc = 1;
             } else if (strcmp(argv[1], "dec")) {
+                alyal_help(argv[0]);
                 alyal_error("Unknown mode");
-                is_error = 1;
+                return 1;
             }
             inpath = argv[2];
             outpath = argv[3];
             break;
         default:
+            alyal_help(argv[0]);
             alyal_error("Incorrect number of arguments");
-            is_error = 1;
-    }
-    if (is_error) {
-        alyal_help(argv[0]);
-        return 1;
+            return 1;
     }
 
     /* define sizes */
@@ -153,10 +151,33 @@ int main(int argc, char **argv) {
     uint64_t *q = p + OPSNUM;
     uint64_t *m = q + OPSNUM;
 
-    /* get 128bit key from STDIN */
-    alyal_info("Reading 128bit key from STDIN..");
-    if (fread(k, 2 * sizeof(uint64_t), 1, stdin) != 1) {
-        alyal_error("Too small key");
+    /* get a 128-bit hexadecimal key from STDIN */
+    alyal_info("Reading 128-bit hexadecimal key from STDIN..");
+    char k_tmp;
+    int i = 0, j = 0;
+    while(fread(&k_tmp, 1, 1, stdin)) {
+        if (k_tmp == '\n') break;
+        if (
+            !(k_tmp >= '0' && k_tmp <= '9') &&
+            !(k_tmp >= 'a' && k_tmp <= 'f') &&
+            !(k_tmp >= 'A' && k_tmp <= 'F')
+        ) {
+            alyal_error("Invalid hexadecimal input");
+            goto fail;
+        }
+        if (i > 15) {
+            alyal_error("Too long key");
+            goto fail;
+        }
+        if      (k_tmp <= '9') ((unsigned char *)k)[j] ^= k_tmp - '0';
+        else if (k_tmp <= 'f') ((unsigned char *)k)[j] ^= k_tmp - 'a' + 10;
+        else if (k_tmp <= 'F') ((unsigned char *)k)[j] ^= k_tmp - 'A' + 10;
+        if (i % 2 == 0) ((unsigned char *)k)[j] <<= 4;
+        else j++;
+        i++;
+    }
+    if (i < 16) {
+        alyal_error("Too short key");
         goto fail;
     }
 

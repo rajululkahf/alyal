@@ -5,7 +5,7 @@ BIN=alyal
 
 .PHONY: all
 all: Makefile $(SRC) $(BIN)
-	$(CC) $(CFLAGS) $(SRC)  -o $(BIN)
+	$(CC) $(CFLAGS) $(SRC) -o $(BIN)
 
 .PHONY: clean
 clean:
