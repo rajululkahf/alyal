@@ -1,7 +1,9 @@
 /*
- *  Alyal - A file encryption and decryption tool based on Baheem.
+ *  Alyal - A file encryption and decryption tool based on Ghasaq and
+ *  Baheem.
  *  Copyright (C) 2022 M. Rajululkahf
  *  https://codeberg.org/rajululkahf/alyal
+ *  https://codeberg.org/rajululkahf/ghasaq
  *  https://codeberg.org/rajululkahf/baheem
  *
  *  This program is free software: you can redistribute it and/or modify
