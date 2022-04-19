@@ -5,5 +5,5 @@ Alyal is a file encryption and decryption tool implementing:
 
 1. Run `make` to compile.
 1. Run `make test` to test binary's fitness.
-1. Run `alyal /usr/bin/` to install it.
+1. Run `cp alyal /usr/bin/` to install it.
 1. Run `alyal help` for help.
