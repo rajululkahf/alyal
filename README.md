@@ -1,3 +1,7 @@
+*WARNING:* Broken cipher.
+
+-----
+
 Alyal is a file encryption and decryption tool implementing:
 - [Ġasaq](https://codeberg.org/rajululkahf/ghasaq) for key derivation.
 - [Băhēm](https://codeberg.org/rajululkahf/baheem) for data encryption and
