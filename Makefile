@@ -31,12 +31,5 @@ test: $(BIN)
 							$(TST)/file.enc.txt
 	$(DIF) $(TST)/file.txt $(TST)/file.enc.txt
 	###############################
-	# testing with key derivation
+	# tests completed successfully
 	###############################
-	echo "some password!" | ./alyal dkenc \
-					$(TST)/file.txt \
-					$(TST)/file.dkenc
-	echo "some password!" | ./alyal dkdec \
-					$(TST)/file.dkenc \
-					$(TST)/file.dkenc.txt
-	$(DIF) $(TST)/file.txt $(TST)/file.dkenc.txt
