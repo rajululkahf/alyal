@@ -1,7 +1,3 @@
-*WARNING:* Broken cipher.
-
------
-
 Alyal is a file encryption and decryption tool implementing:
 - [Băhēm](https://codeberg.org/rajululkahf/baheem) for data encryption and
   decryption.
