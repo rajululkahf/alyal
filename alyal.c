@@ -61,7 +61,7 @@ void alyal_help(char *cmd_name) {
         "\n"
         "Arguments:\n"
         "   IN      Input file path.\n"
-        "   OUT     Outpuf file path.\n"
+        "   OUT     Output file path.\n"
         "   TRNG    TRNG device path.  Default is '%s'.\n"
         "\n",
         VERSION, YEAR, cmd_name, cmd_name, DEFAULT_TRNG
