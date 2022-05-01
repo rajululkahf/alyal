@@ -208,7 +208,6 @@ int main(int argc, char **argv) {
     if (alyal_open(&out,  outpath,  "w")) goto fail;
     if (alyal_open(&trng, trngpath, "r")) goto fail;
     pad = malloc(k_size + p_size + q_size + m_size);
-    memset(pad, 0, k_size + p_size + q_size + m_size);
     if (pad == NULL) {
         perror("Memory allocation");
         goto fail;
@@ -257,7 +256,10 @@ int main(int argc, char **argv) {
     /* free resources and exit */
     ret = 0;
 fail:
-    if (pad)  free(pad);
+    if (pad) {
+        memset(pad, 0, k_size + p_size + q_size + m_size);
+        free(pad);
+    }
     if (in)   fclose(in);
     if (out)  fclose(out);
     if (trng) fclose(trng);
