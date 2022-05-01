@@ -30,7 +30,7 @@
 #define VERSION "2"
 #define YEAR "2022"
 #define DEFAULT_TRNG "/dev/random"
-#define OPSNUM 512
+#define OPSNUM 512   /* must be an even number */
 
 void alyal_info(char *s) {
     fprintf(stderr, "%s\n", s);
@@ -129,10 +129,13 @@ void baheem_enc(
     size_t  len  /* length of m = p = q    */
 ) {
     size_t i;
-    for (i = 0; i < len; i++) {
-        m[i] ^= p[i] + q[i];
-        p[i] += k[0];
-        q[i] += k[1];
+    for (i = 0; i < len; i += 2) {
+        m[i]   ^= p[i]   + q[i];
+        m[i+1] ^= p[i+1] + q[i+1];
+        p[i]   += k[0];
+        q[i]   += k[0];
+        p[i+1] += k[1];
+        q[i+1] += k[1];
     }
 }
 
@@ -144,10 +147,13 @@ void baheem_dec(
     size_t  len  /* length of m = p = q    */
 ) {
     size_t i;
-    for (i = 0; i < len; i++) {
-        p[i] -= k[0];
-        q[i] -= k[1];
-        m[i] ^= p[i] + q[i];
+    for (i = 0; i < len; i += 2) {
+        p[i]   -= k[0];
+        q[i]   -= k[0];
+        p[i+1] -= k[1];
+        q[i+1] -= k[1];
+        m[i]   ^= p[i]   + q[i];
+        m[i+1] ^= p[i+1] + q[i+1];
     }
 }
 

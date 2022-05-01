@@ -1,5 +1,5 @@
 CC=gcc
-CFLAGS=-Wall -Wextra -march=native -mtune=native -std=gnu99 -pedantic -finline-functions -O3 -flto -g
+CFLAGS=-Wall -Wextra -march=native -mtune=native -std=gnu99 -pedantic -finline-functions -O3 -flto
 SRC=alyal.c
 BIN=alyal
 TST=tests
@@ -19,7 +19,7 @@ test: $(BIN)
 	# preparing tests
 	###############################
 	mkdir -p $(TST)
-	dd bs=1MB count=100 if=/dev/random of=$(TST)/file.txt
+	dd bs=1MB count=100 if=/dev/zero of=$(TST)/file.txt
 	###############################
 	# testing with raw 128-bit keys
 	###############################
