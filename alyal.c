@@ -27,7 +27,7 @@
 #include <unistd.h>  /* STDIN_FILENO */
 #include <termios.h> /* tcgetattr, tcsetattr */
 
-#define VERSION "2"
+#define VERSION "2.1"
 #define YEAR "2022"
 #define DEFAULT_TRNG "/dev/random"
 #define OPSNUM 512   /* must be an even number */
@@ -87,34 +87,27 @@ int alyal_random(void *out, size_t n, void *in) {
 
 int alyal_get_key(uint64_t *k) {
     alyal_info("Reading 128-bit hexadecimal key from STDIN..");
-    char k_tmp;
+    k[0] = 0;
+    k[1] = 0;
+    unsigned char *kb = (unsigned char *)k;
+    char c;
     int i = 0, j = 0;
-    while (fread(&k_tmp, 1, 1, stdin)) {
-        if (k_tmp == '\n') break;
-        if (
-            !(k_tmp >= '0' && k_tmp <= '9') &&
-            !(k_tmp >= 'a' && k_tmp <= 'f') &&
-            !(k_tmp >= 'A' && k_tmp <= 'F')
-        ) {
-            alyal_error("Invalid hexadecimal input");
-            return 1;
-        }
-        if (j > 15) {
-            alyal_error("Too long key");
-            return 1;
-        }
-        if      (k_tmp <= '9') ((unsigned char *)k)[j] ^= k_tmp - '0';
-        else if (k_tmp <= 'f') ((unsigned char *)k)[j] ^= k_tmp - 'a' + 10;
-        else if (k_tmp <= 'F') ((unsigned char *)k)[j] ^= k_tmp - 'A' + 10;
-        if (i % 2 == 0) ((unsigned char *)k)[j] <<= 4;
+    while (fread(&c, 1, 1, stdin)) {
+        if (c == '\n') break;
+        if (j > 15)    goto bad_length;
+        if      (c >= '0' && c <= '9') kb[j] ^= c - '0';
+        else if (c >= 'a' && c <= 'f') kb[j] ^= c - 'a' + 10;
+        else if (c >= 'A' && c <= 'F') kb[j] ^= c - 'A' + 10;
+        else goto bad_format;
+        if (i % 2 == 0) kb[j] <<= 4;
         else j++;
         i++;
     }
-    if (j < 16) {
-        alyal_error("Too short key");
-        return 1;
-    }
-    return 0;
+    if (j == 16) return 0;
+bad_length:
+    alyal_error("Key length must be 128 bits"); return 1;
+bad_format:
+    alyal_error("Key must be encoded in hex");  return 1;
 }
 
 /*
