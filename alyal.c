@@ -27,7 +27,7 @@
 #include <unistd.h>  /* STDIN_FILENO */
 #include <termios.h> /* tcgetattr, tcsetattr */
 
-#define VERSION "2.1"
+#define VERSION "3"
 #define YEAR "2022"
 #define DEFAULT_TRNG "/dev/random"
 #define OPSNUM 512   /* must be an even number */
@@ -114,39 +114,52 @@ bad_format:
  * functions implementing Baheem:
  * https://codeberg.org/rajululkahf/baheem
  */
-void baheem_enc(
-    uint64_t *k, /* 128-bit pre-shared key */
-    uint64_t *p, /* random pad 1           */
-    uint64_t *q, /* random pad 2           */
-    uint64_t *m, /* message                */
-    size_t  len  /* length of m = p = q    */
+void baheem_session_enc(
+    uint64_t *k,    /* pre-shared key */
+    uint64_t *s,    /* session key    */
+    uint64_t *s_enc /* encrypted s    */
+) {
+    s_enc[0] = s[0] + k[0];
+    s_enc[1] = s[1] + k[1];
+}
+
+void baheem_session_dec(
+    uint64_t *k, /* pre-shared key */
+    uint64_t *s  /* session key    */
+) {
+    s[0] -= k[0];
+    s[1] -= k[1];
+}
+
+void baheem_block_enc(
+    uint64_t *k, /* pre-shared key    */
+    uint64_t *s, /* session key       */
+    uint64_t *p, /* pad keys          */
+    uint64_t *m, /* message           */
+    size_t  len  /* length of m and p */
 ) {
     size_t i;
     for (i = 0; i < len; i += 2) {
-        m[i]   ^= p[i]   + q[i];
-        m[i+1] ^= p[i+1] + q[i+1];
+        m[i]   ^= p[i]   + s[0];
+        m[i+1] ^= p[i+1] + s[1];
         p[i]   += k[0];
-        q[i]   += k[0];
         p[i+1] += k[1];
-        q[i+1] += k[1];
     }
 }
 
-void baheem_dec(
-    uint64_t *k, /* 128-bit pre-shared key */
-    uint64_t *p, /* random pad 1           */
-    uint64_t *q, /* random pad 2           */
-    uint64_t *m, /* message                */
-    size_t  len  /* length of m = p = q    */
+void baheem_block_dec(
+    uint64_t *k, /* pre-shared key    */
+    uint64_t *s, /* session key       */
+    uint64_t *p, /* pad keys          */
+    uint64_t *m, /* message           */
+    size_t  len  /* length of m and p */
 ) {
     size_t i;
     for (i = 0; i < len; i += 2) {
         p[i]   -= k[0];
-        q[i]   -= k[0];
         p[i+1] -= k[1];
-        q[i+1] -= k[1];
-        m[i]   ^= p[i]   + q[i];
-        m[i+1] ^= p[i+1] + q[i+1];
+        m[i]   ^= p[i]   + s[0];
+        m[i+1] ^= p[i+1] + s[1];
     }
 }
 
@@ -187,9 +200,9 @@ int main(int argc, char **argv) {
 
     /* define sizes */
     size_t k_size = 2 * sizeof(uint64_t);
-    size_t m_size = OPSNUM * sizeof(uint64_t);
-    size_t p_size = m_size;
-    size_t q_size = m_size;
+    size_t s_size = k_size;
+    size_t p_size = OPSNUM * sizeof(uint64_t);
+    size_t m_size = p_size;
 
     /* allocate resources */
     int ret = 1;
@@ -200,15 +213,15 @@ int main(int argc, char **argv) {
     if (alyal_open(&in,   inpath,   "r")) goto fail;
     if (alyal_open(&out,  outpath,  "w")) goto fail;
     if (alyal_open(&trng, trngpath, "r")) goto fail;
-    pad = malloc(k_size + p_size + q_size + m_size);
+    pad = malloc(k_size + s_size + p_size + m_size);
     if (pad == NULL) {
         perror("Memory allocation");
         goto fail;
     }
     uint64_t *k = pad;
-    uint64_t *p = k + 2;
-    uint64_t *q = p + OPSNUM;
-    uint64_t *m = q + OPSNUM;
+    uint64_t *s = k + 2;
+    uint64_t *p = s + 2;
+    uint64_t *m = p + OPSNUM;
 
     /* get a 128-bit key */
     if (alyal_get_key(k)) goto fail;
@@ -217,25 +230,34 @@ int main(int argc, char **argv) {
     size_t in_size;
     if (is_enc) {
         alyal_info("Encrypting...");
+        if (alyal_random(s, s_size, trng)) goto fail;
+        baheem_session_enc(k, s, p);
+        if (fwrite(p, s_size, 1, out) != 1) {
+            alyal_error("Writing encryptd session key failed");
+            goto fail;
+        }
         while ((in_size = fread(m, 1, m_size, in))) {
-            if (alyal_random(p, p_size + q_size, trng)) {
-                goto fail;
-            }
-            baheem_enc(k, p, q, m, OPSNUM);
-            if (fwrite(p, p_size + q_size + in_size, 1, out) != 1) {
+            if (alyal_random(p, p_size, trng)) goto fail;
+            baheem_block_enc(k, s, p, m, OPSNUM);
+            if (fwrite(p, p_size + in_size, 1, out) != 1) {
                 alyal_error("Writing ciphertext failed");
                 goto fail;
             }
         }
     } else {
         alyal_info("Decrypting...");
-        while ((in_size = fread(p, 1, p_size + q_size + m_size, in))) {
-            if (in_size < p_size + q_size + 1) {
+        if (fread(s, s_size, 1, in) != 1) {
+            alyal_error("Reading encryptd session key failed");
+            goto fail;
+        }
+        baheem_session_dec(k, s);
+        while ((in_size = fread(p, 1, p_size + m_size, in))) {
+            if (in_size < p_size + 1) {
                 alyal_error("Corrupted ciphertext");
                 goto fail;
             }
-            baheem_dec(k, p, q, m, OPSNUM);
-            if (fwrite(m, in_size - p_size - q_size, 1, out) != 1) {
+            baheem_block_dec(k, s, p, m, OPSNUM);
+            if (fwrite(m, in_size - p_size, 1, out) != 1) {
                 alyal_error("Writing cleartext failed");
                 goto fail;
             }
@@ -250,7 +272,7 @@ int main(int argc, char **argv) {
     ret = 0;
 fail:
     if (pad) {
-        memset(pad, 0, k_size + p_size + q_size + m_size);
+        memset(pad, 0, k_size + s_size + p_size + m_size);
         free(pad);
     }
     if (in)   fclose(in);
